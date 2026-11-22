@@ -1,0 +1,16 @@
+{
+  "name": "school-portal",
+  "version": "2.1.0",
+  "description": "Student registration and login (SQL Server) with salt, pepper, email verification and profile pictures",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "jsonwebtoken": "^9.0.2",
+    "mssql": "^10.0.2",
+    "multer": "^2.0.0",
+    "nodemailer": "^6.9.14"
+  }
+}

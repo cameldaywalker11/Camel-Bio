@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>School Portal</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#f3f5f9;margin:0;display:flex;justify-content:center;padding:24px}
+  .card{background:#fff;padding:24px;border-radius:12px;width:100%;max-width:380px;box-shadow:0 2px 10px #0001}
+  input,select,button{width:100%;padding:10px;margin:6px 0;box-sizing:border-box;font-size:16px}
+  button{background:#1d4ed8;color:#fff;border:0;border-radius:6px;cursor:pointer}
+  button:disabled{background:#93a8e6;cursor:wait}
+  a{color:#1d4ed8;cursor:pointer} #msg{margin-top:10px;font-size:14px}
+  label.small{display:block;font-size:14px;color:#444;margin-top:8px}
+  #preview{display:none;width:90px;height:90px;border-radius:50%;object-fit:cover;margin:6px auto;border:2px solid #dbe3f5}
+  #otp{text-align:center;font-size:28px;letter-spacing:10px}
+  .info{font-size:14px;color:#444;line-height:1.5}
+  .links{font-size:14px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h2 id="title">Login</h2>
+
+  <form id="loginForm">
+    <input id="lid" placeholder="Student ID" required>
+    <input id="lpw" type="password" placeholder="Password" required>
+    <button>Login</button>
+    <p>No account? <a onclick="show('reg')">Register</a></p>
+  </form>
+
+  <form id="regForm" hidden>
+    <input id="rname" placeholder="Full name" required>
+    <select id="rprog" required><option value="">Loading programs...</option></select>
+    <input id="rid" placeholder="Student ID" required>
+    <input id="rmail" type="email" placeholder="Email" required>
+    <input id="rpw" type="password" placeholder="Password (min 8 chars)" required minlength="8">
+    <label class="small" for="rphoto">Profile picture (optional, JPG/PNG/WebP, max 2 MB)</label>
+    <input id="rphoto" type="file" accept="image/jpeg,image/png,image/webp">
+    <img id="preview" alt="Preview of your profile picture">
+    <button id="regBtn">Send verification code</button>
+    <p>Have an account? <a onclick="show('login')">Login</a></p>
+  </form>
+
+  <!-- Step 2 of registration: enter the code that was emailed -->
+  <form id="otpForm" hidden>
+    <p class="info" id="otpInfo"></p>
+    <input id="otp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="------" required>
+    <button id="otpBtn">Verify and create account</button>
+    <p class="links"><a id="resend" onclick="resend()">Resend code</a> &nbsp;|&nbsp; <a onclick="show('reg')">Change details</a></p>
+  </form>
+  <div id="msg"></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const say = (t, ok) => { $('msg').style.color = ok ? 'green' : 'crimson'; $('msg').textContent = t; };
+const TITLES = { login: 'Login', reg: 'Register', otp: 'Verify your email' };
+function show(v){
+  $('loginForm').hidden = v !== 'login';
+  $('regForm').hidden = v !== 'reg';
+  $('otpForm').hidden = v !== 'otp';
+  $('title').textContent = TITLES[v];
+  say('');
+}
+async function post(url, body){
+  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  return { ok:r.ok, data: await r.json() };
+}
+
+// Already logged in? Go straight to the main page.
+if (sessionStorage.getItem('token')) location.href = '/main.html';
+
+// Load programs into the dropdown
+fetch('/api/programs').then(r => r.json()).then(list => {
+  const sel = $('rprog');
+  sel.innerHTML = '';
+  const first = document.createElement('option');
+  first.value = ''; first.textContent = 'Select program';
+  sel.appendChild(first);
+  list.forEach(p => {
+    const o = document.createElement('option');
+    o.value = p.ProgramId; o.textContent = p.ProgramName;
+    sel.appendChild(o);
+  });
+}).catch(() => { $('rprog').innerHTML = '<option value="">Could not load programs</option>'; });
+
+// Check the chosen picture and show a small preview
+const MAX_PHOTO = 2 * 1024 * 1024;
+function clearPhoto(){
+  const pv = $('preview');
+  if (pv.src) URL.revokeObjectURL(pv.src);
+  pv.style.display = 'none'; pv.removeAttribute('src');
+}
+$('rphoto').onchange = () => {
+  const f = $('rphoto').files[0];
+  clearPhoto();
+  if (!f) return;
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) {
+    $('rphoto').value = '';
+    return say('Please choose a JPG, PNG or WebP image.', false);
+  }
+  if (f.size > MAX_PHOTO) {
+    $('rphoto').value = '';
+    return say('That picture is too big. Please choose one under 2 MB.', false);
+  }
+  say('');
+  $('preview').src = URL.createObjectURL(f);
+  $('preview').style.display = 'block';
+};
+
+/* ---------- Registration, step 1: email a code (nothing is saved yet) ---------- */
+let pendingId = null;
+let resendAt = 0;
+let resendTimer = null;
+
+function tickResend(){
+  const left = Math.ceil((resendAt - Date.now()) / 1000);
+  if (left > 0) { $('resend').textContent = `Resend code (${left}s)`; return; }
+  clearInterval(resendTimer); resendTimer = null;
+  $('resend').textContent = 'Resend code';
+}
+function startCooldown(sec){
+  resendAt = Date.now() + sec * 1000;
+  clearInterval(resendTimer);
+  resendTimer = setInterval(tickResend, 500);
+  tickResend();
+}
+
+$('regForm').onsubmit = async (e) => {
+  e.preventDefault();
+  // FormData is used (instead of JSON) so the picture file can be sent
+  const fd = new FormData();
+  fd.append('name', $('rname').value);
+  fd.append('programId', $('rprog').value);
+  fd.append('studentId', $('rid').value);
+  fd.append('email', $('rmail').value);
+  fd.append('password', $('rpw').value);
+  const photo = $('rphoto').files[0];
+  if (photo) fd.append('photo', photo);
+
+  const btn = $('regBtn');
+  btn.disabled = true; btn.textContent = 'Sending code...';
+  try {
+    const r = await fetch('/api/register/start', { method: 'POST', body: fd });
+    const data = await r.json();
+    if (!r.ok) return say(data.error, false);
+    pendingId = data.pendingId;
+    $('otpInfo').textContent = data.message + ' Enter it below to finish. It expires in 10 minutes. Your account is only created after the code is confirmed.';
+    $('otp').value = '';
+    show('otp');
+    startCooldown(30);
+    $('otp').focus();
+  } catch {
+    say('Could not reach the server. Please try again.', false);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Send verification code';
+  }
+};
+
+/* ---------- Registration, step 2: enter the code; the account is created only now ---------- */
+$('otpForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const btn = $('otpBtn');
+  btn.disabled = true;
+  try {
+    const {ok, data} = await post('/api/register/verify', { pendingId, otp: $('otp').value.trim() });
+    if (!ok) {
+      if (data.expired) { pendingId = null; show('reg'); }
+      return say(data.error, false);
+    }
+    const id = $('rid').value;
+    pendingId = null;
+    $('regForm').reset(); clearPhoto();
+    show('login');
+    $('lid').value = id.trim().toUpperCase();
+    say(data.message, true);
+  } catch {
+    say('Could not reach the server. Please try again.', false);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+async function resend(){
+  if (!pendingId || Date.now() < resendAt) return;
+  const {ok, data} = await post('/api/register/resend', { pendingId });
+  if (!ok) {
+    if (data.expired) { pendingId = null; show('reg'); }
+    return say(data.error, false);
+  }
+  say(data.message, true);
+  startCooldown(30);
+}
+
+$('loginForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const {ok, data} = await post('/api/login', { studentId:$('lid').value, password:$('lpw').value });
+  if (!ok) return say(data.error, false);
+  sessionStorage.setItem('token', data.token);
+  location.href = '/main.html';
+};
+</script>
+</body>
+</html>

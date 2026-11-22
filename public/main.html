@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Profile - School Portal</title>
+<style>
+  *{box-sizing:border-box}
+  body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#eef1f8;margin:0;padding:20px;color:#1f2937}
+  .page{max-width:920px;margin:0 auto}
+
+  /* Banner with framed picture */
+  .banner{display:flex;align-items:center;gap:24px;flex-wrap:wrap;background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;border-radius:16px;padding:26px;box-shadow:0 6px 20px #1d4ed833}
+  .frame{padding:5px;border-radius:50%;background:#fff;box-shadow:0 0 0 4px #ffffff55,0 8px 18px #0003}
+  .avatar{width:140px;height:140px;border-radius:50%;object-fit:cover;display:block;background:#e8eefc}
+  .initial{display:flex;align-items:center;justify-content:center;font:700 3.6rem system-ui,sans-serif;color:#1d4ed8}
+  .who{flex:1;min-width:220px}
+  .hello{margin:0;opacity:.85;font-size:.95rem}
+  .who h1{margin:4px 0 10px;font-size:1.9rem;line-height:1.2}
+  .badge{display:inline-block;background:#fff;color:#1d4ed8;font-weight:600;border-radius:999px;padding:5px 14px;font-size:.95rem;margin:0 8px 6px 0}
+  .sid{display:inline-block;border:1px solid #ffffff88;border-radius:999px;padding:4px 12px;font-size:.9rem}
+
+  /* Framed sections */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+  .panel{background:#fff;border:1px solid #d6dcec;border-top:5px solid #1d4ed8;border-radius:12px;padding:20px 22px;box-shadow:0 2px 10px #0001}
+  .panel.wide{grid-column:1 / -1}
+  .panel h2{margin:0 0 10px;font-size:1.15rem;color:#1d4ed8}
+  .panel p{line-height:1.7;margin:0 0 10px}
+  .panel ul{margin:0;padding-left:20px;line-height:1.7}
+  .panel li{margin-bottom:6px}
+  .todo{list-style:none;padding:0!important}
+  .todo li{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:8px;background:#f5f7fd}
+  .todo .done{background:#ecfdf3}
+  .todo .mark{flex:none;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;color:#fff;background:#f59e0b}
+  .todo .done .mark{background:#16a34a}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:#e8eefc;border:1px solid #c5d3f6;color:#1e3a8a;border-radius:8px;padding:7px 12px;font-size:.95rem}
+
+  .actions{margin-top:20px;text-align:center}
+  button{padding:10px 22px;background:#1d4ed8;color:#fff;border:0;border-radius:8px;font-size:16px;cursor:pointer}
+  .err{color:crimson}
+  .loading{background:#fff;border-radius:12px;padding:24px;text-align:center}
+  @media (max-width:700px){ .grid{grid-template-columns:1fr} .banner{justify-content:center;text-align:center} }
+</style>
+</head>
+<body>
+<div class="page">
+  <div id="content"><div class="loading">Loading your information...</div></div>
+  <div class="actions"><button onclick="logout()">Logout</button></div>
+</div>
+
+<script>
+const token = sessionStorage.getItem('token');
+if (!token) location.href = '/';
+
+function logout(){ sessionStorage.removeItem('token'); location.href = '/'; }
+
+/* ---------- Career and study information, chosen by words in the program name ---------- */
+const PROFILES = [
+  { match: /nursing|midwifery/,
+    about: 'Nursing and midwifery students learn to care for patients and communities, combining classroom science with supervised work on hospital wards and in clinics.',
+    careers: ['Registered nurse', 'Midwife', 'Community health nurse', 'Theatre or ICU nurse', 'Public health nurse', 'Nurse educator or researcher'],
+    advice: ['Take your clinical placements seriously; they build the practical skills employers look for.',
+             'Start preparing early for the nursing and midwifery licensing examination in your country.',
+             'Learn and renew your first aid and CPR certification.',
+             'Practise clear communication and record keeping, which matter as much as technical skill.'] },
+  { match: /information technology|computer science|software|computing/,
+    about: 'Information technology students learn how to build, connect and secure the software and networks that organisations depend on.',
+    careers: ['Web or software developer', 'Network engineer', 'Database administrator', 'Cybersecurity analyst', 'IT support specialist', 'Systems analyst'],
+    advice: ['Build real projects and keep them on GitHub; a portfolio often counts more than grades.',
+             'Learn SQL well, plus one backend language such as JavaScript or Python.',
+             'Consider entry-level certifications such as CompTIA or Cisco CCNA.',
+             'Apply for internships or industrial attachments before you graduate.'] },
+  { match: /construction|quantity surveying|civil/,
+    about: 'Construction students learn how buildings and infrastructure are planned, costed, managed and delivered safely on site.',
+    careers: ['Site engineer or supervisor', 'Construction manager', 'Quantity surveyor', 'Project planner', 'Building inspector', 'Cost estimator'],
+    advice: ['Spend your vacations on real construction sites to see how plans become buildings.',
+             'Learn AutoCAD and a project planning tool such as MS Project.',
+             'Join the professional body for your field as a student member.',
+             'Learn site safety rules thoroughly; they matter on every project.'] },
+  { match: /electrical|engineering/,
+    about: 'Engineering students apply mathematics and science to design, build and maintain systems that people rely on every day.',
+    careers: ['Design engineer', 'Maintenance engineer', 'Project engineer', 'Power or telecom engineer', 'Technical consultant', 'Quality engineer'],
+    advice: ['Strengthen your mathematics and fundamentals early; later courses build on them.',
+             'Look for industrial attachments to get hands-on experience.',
+             'Learn the main design and simulation software used in your field.',
+             'Register with your country\'s engineering body as a student member.'] },
+  { match: /architecture/,
+    about: 'Architecture students learn to design buildings and spaces that are functional, safe and beautiful.',
+    careers: ['Architect', 'Urban designer', 'Interior designer', 'BIM specialist', 'Landscape designer', 'Heritage or restoration consultant'],
+    advice: ['Keep a strong portfolio of your best studio work; it is your main CV.',
+             'Learn AutoCAD, Revit and SketchUp.',
+             'Seek internships in architecture firms for real design experience.',
+             'Visit buildings and sites often, and sketch what you see.'] },
+  { match: /human resource/,
+    about: 'Human resource students learn how organisations recruit, develop, reward and support their people.',
+    careers: ['HR officer', 'Recruitment specialist', 'Training and development officer', 'Payroll administrator', 'Employee relations officer', 'HR consultant'],
+    advice: ['Learn the basics of labour law; every HR decision touches it.',
+             'Get comfortable with Excel and HR software.',
+             'Consider professional certification such as CIPD or SHRM.',
+             'Look for an internship in an HR department.'] },
+  { match: /banking|finance|accounting|economics/,
+    about: 'Banking, finance and accounting students learn how money is managed, invested, recorded and regulated.',
+    careers: ['Bank officer', 'Financial analyst', 'Credit or risk analyst', 'Accountant', 'Auditor', 'Investment or insurance officer'],
+    advice: ['Become strong in Excel; almost every finance job uses it daily.',
+             'Plan for professional exams such as ACCA or your national institute\'s qualification.',
+             'Follow business and financial news to understand the market.',
+             'Seek internships in banks or accounting firms.'] },
+  { match: /logistics|supply chain/,
+    about: 'Logistics students learn how goods move from suppliers to customers efficiently, on time and at the right cost.',
+    careers: ['Logistics coordinator', 'Supply chain analyst', 'Procurement officer', 'Warehouse manager', 'Freight forwarder', 'Inventory planner'],
+    advice: ['Learn Excel and inventory or ERP software.',
+             'Understand import and export documentation and customs basics.',
+             'Look for attachments at ports, shipping or distribution companies.',
+             'Develop negotiation and planning skills.'] },
+  { match: /medicine|mbchb/,
+    about: 'Medical students study the human body, disease and treatment, and move from classroom science to supervised care of patients.',
+    careers: ['Medical doctor', 'Hospital specialist (after postgraduate training)', 'Public health physician', 'Medical researcher', 'Medical educator', 'Health policy adviser'],
+    advice: ['Study consistently; the volume of material is too large to cram.',
+             'Make the most of clinical rotations and ask questions.',
+             'Prepare ahead for licensing examinations and the internship period after graduation.',
+             'Protect your health and sleep; the training is demanding.'] },
+  { match: /pharmacy|pharmd/,
+    about: 'Pharmacy students learn how medicines work, how they are made and how to dispense and advise on them safely.',
+    careers: ['Community pharmacist', 'Hospital pharmacist', 'Regulatory affairs officer', 'Pharmaceutical sales or marketing', 'Quality control analyst', 'Drug researcher'],
+    advice: ['Master pharmacology and drug interactions; they are the core of the profession.',
+             'Prepare early for the pharmacy licensing examination.',
+             'Complete internships in both hospital and community pharmacies.',
+             'Learn to explain medicines in simple language to patients.'] },
+  { match: /laboratory|public health|physiotherapy/,
+    about: 'Health science students prepare for specialist roles that support diagnosis, treatment and the health of whole communities.',
+    careers: ['Medical laboratory scientist', 'Public health officer', 'Physiotherapist', 'Health researcher', 'Hospital or clinic specialist', 'NGO health programme officer'],
+    advice: ['Gain practical experience through your attachments.',
+             'Find out which licensing or registration your profession requires.',
+             'Learn basic data analysis; health work relies on evidence.',
+             'Build contacts in hospitals and health organisations early.'] },
+  { match: /business|marketing|management/,
+    about: 'Business students learn how organisations are run, how markets work and how to lead people and projects.',
+    careers: ['Business analyst', 'Marketing officer', 'Operations manager', 'Entrepreneur', 'Sales manager', 'Project coordinator'],
+    advice: ['Practise presenting and writing clearly; they are central to every business role.',
+             'Learn Excel and basic data analysis.',
+             'Start a small project or join a student business club to gain real experience.',
+             'Look for internships to see how companies actually operate.'] },
+  { match: /law|llb/,
+    about: 'Law students learn how legal systems work and how to analyse problems, argue a position and advise clients.',
+    careers: ['Lawyer or advocate', 'Legal adviser', 'Prosecutor', 'Judge or magistrate (long term)', 'Compliance officer', 'Legal researcher'],
+    advice: ['Read widely and practise writing clear legal arguments.',
+             'Take part in moot courts and debates.',
+             'Learn what is required to qualify for the bar in your country.',
+             'Seek vacation placements in law firms or courts.'] },
+  { match: /psychology/,
+    about: 'Psychology students study how people think, feel and behave, and how to support mental wellbeing.',
+    careers: ['Counsellor', 'Clinical psychology (with postgraduate training)', 'Human resource or organisational psychologist', 'School counsellor', 'Researcher', 'Social programme officer'],
+    advice: ['Strengthen your statistics and research methods.',
+             'Gain supervised practical experience through volunteering or attachments.',
+             'Plan for postgraduate study if you want to practise clinically.',
+             'Develop active listening and professional ethics.'] },
+  { match: /theology/,
+    about: 'Theology students study scripture, doctrine and ministry, and prepare to serve and lead communities of faith.',
+    careers: ['Pastor or minister', 'Chaplain', 'Missionary or outreach worker', 'Religious educator', 'Counsellor', 'Community and NGO leader'],
+    advice: ['Combine your studies with practical ministry or volunteer service.',
+             'Develop your public speaking and writing.',
+             'Seek mentors who have served for many years.',
+             'Learn basic counselling and leadership skills.'] }
+];
+const FALLBACK = {
+  about: 'Your program gives you both the knowledge and the practical skills to start a career in your chosen field.',
+  careers: ['Roles in your field of study', 'Graduate trainee programmes', 'Further study or research', 'Consulting', 'Starting your own business'],
+  advice: ['Attend classes regularly and keep up with your coursework.',
+           'Look for internships or attachments in your field.',
+           'Build practical skills alongside your grades.',
+           'Talk to your lecturers and advisers about career paths.']
+};
+
+const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+(async () => {
+  const box = document.getElementById('content');
+  try {
+    const auth = { Authorization: 'Bearer ' + token };
+    const r = await fetch('/api/me', { headers: auth });
+    if (!r.ok) { sessionStorage.removeItem('token'); return location.href = '/'; }
+    const s = await r.json();
+
+    // Profile picture: fetched with the login token and shown from a temporary local URL.
+    // Students without a picture get a circle with their first initial.
+    let avatar = `<div class="avatar initial">${esc(s.FullName.trim().charAt(0).toUpperCase())}</div>`;
+    if (s.HasPhoto) {
+      const pr = await fetch('/api/me/photo', { headers: auth });
+      if (pr.ok) avatar = `<img class="avatar" src="${URL.createObjectURL(await pr.blob())}" alt="Profile picture of ${esc(s.FullName)}">`;
+    }
+
+    const p = PROFILES.find((x) => x.match.test(s.ProgramName.toLowerCase())) || FALLBACK;
+    const created = new Date(s.CreatedAt);
+    const joined = created.toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' });
+    const days = Math.max(0, Math.floor((Date.now() - created) / 86400000));
+    const since = days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    const verified = !!s.IsEmailVerified;
+
+    const todo = [
+      { done: verified, text: verified ? 'Your email address is verified.' : 'Verify your email address using the link we sent you.' },
+      { done: false, text: 'Check that your name, student ID and program above are correct. Contact the school administration if anything is wrong.' },
+      { done: false, text: 'Keep your password private and log out when using a shared computer.' }
+    ];
+
+    box.innerHTML = `
+      <div class="banner">
+        <div class="frame">${avatar}</div>
+        <div class="who">
+          <p class="hello">${greeting},</p>
+          <h1>${esc(s.FullName)}</h1>
+          <span class="badge">${esc(s.ProgramName)}</span>
+          <span class="sid">Student ID: ${esc(s.StudentId)}</span>
+        </div>
+      </div>
+
+      <div class="grid">
+        <section class="panel wide">
+          <h2>About you</h2>
+          <p>Welcome, <strong>${esc(s.FullName)}</strong>. You are registered on the school portal under student ID
+          <strong>${esc(s.StudentId)}</strong> and you are currently enrolled in the <strong>${esc(s.ProgramName)}</strong> program.</p>
+          <p>${esc(p.about)}</p>
+          <p>The email address linked to your account is <strong>${esc(s.Email)}</strong>, which
+          ${verified ? 'has been successfully verified' : 'has not yet been verified'}.
+          Your account was created on ${esc(joined)} (${esc(since)}).</p>
+        </section>
+
+        <section class="panel">
+          <h2>Things to do next</h2>
+          <ul class="todo">
+            ${todo.map((t) => `<li class="${t.done ? 'done' : ''}"><span class="mark">${t.done ? '&#10003;' : '!'}</span><span>${esc(t.text)}</span></li>`).join('')}
+          </ul>
+        </section>
+
+        <section class="panel">
+          <h2>Career opportunities</h2>
+          <div class="chips">
+            ${p.careers.map((c) => `<span class="chip">${esc(c)}</span>`).join('')}
+          </div>
+        </section>
+
+        <section class="panel wide">
+          <h2>Advice for your studies</h2>
+          <ul>
+            ${p.advice.map((a) => `<li>${esc(a)}</li>`).join('')}
+          </ul>
+        </section>
+      </div>`;
+  } catch {
+    box.innerHTML = '<div class="loading err">Could not load your information. Please try again.</div>';
+  }
+})();
+</script>
+</body>
+</html>

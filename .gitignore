@@ -1,0 +1,18 @@
+# Secrets and connection details (database login, Gmail app password, JWT secret)
+.env
+new.env
+.env.*
+!.env.example
+
+# Installed packages (anyone can recreate them with: npm install)
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Operating system and editor files
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/
