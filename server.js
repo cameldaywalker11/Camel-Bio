@@ -17,19 +17,24 @@ if (!JWT_SECRET) {
 }
 
 /* ---------- SQL Server connection ---------- */
+// On your laptop: DB_SERVER=localhost and DB_INSTANCE=SQLEXPRESS (leave DB_PORT and DB_ENCRYPT out).
+// Through a tunnel (Render): set DB_SERVER and DB_PORT to the tunnel's host and port, set DB_ENCRYPT=true,
+// and leave DB_INSTANCE out (a port and an instance name cannot be used together).
 const dbConfig = {
   server: process.env.DB_SERVER || 'localhost',
+  port: parseInt(String(process.env.DB_PORT || '').replace(/\D/g, ''), 10) || undefined, // keeps digits only, so a stray # or space cannot break it
   database: process.env.DB_NAME || 'SchoolDB',
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   options: {
     instanceName: process.env.DB_INSTANCE || undefined,
     trustServerCertificate: true,
-    encrypt: false
+    encrypt: process.env.DB_ENCRYPT === 'true'
   }
 };
 let poolPromise;
-const getPool = () => (poolPromise ||= new sql.ConnectionPool(dbConfig).connect());
+// If a connection attempt fails, forget it so the next request tries again (no restart needed)
+const getPool = () => (poolPromise ||= new sql.ConnectionPool(dbConfig).connect().catch((e) => { poolPromise = null; throw e; }));
 
 /* ---------- Password hashing: pepper + salt ----------
    pepper = random per student, stored in Students.Pepper
@@ -101,6 +106,7 @@ const sendOtpEmail = (to, name, otp) =>
 
 /* ---------- App ---------- */
 const app = express();
+app.set('trust proxy', 1); // Render sits behind a proxy; this lets the rate limiter see each visitor's real IP
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
